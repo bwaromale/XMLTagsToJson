@@ -21,10 +21,17 @@ namespace XMLTAgsExtractor.Controllers
                 return _response;
             }
             bool isAvailable = VerifyFileUrl(extractionRequest.FileUrl);
-            if(!isAvailable)
+            if (!isAvailable)
             {
                 _response.StatusCode= HttpStatusCode.NotFound;
                 _response.ErrorMessages.Add("File Url is invalid");
+                return _response;
+            }
+            bool isXML = CheckFileExtension(extractionRequest.FileUrl);
+            if (!isXML)
+            {
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.ErrorMessages.Add("File extension must be .xml");
                 return _response;
             }
             _response.IsSuccess = true;
@@ -49,6 +56,18 @@ namespace XMLTAgsExtractor.Controllers
             }
             catch (UriFormatException) { }
             return isAvailable;
+        }
+        private bool CheckFileExtension(string fileUrl)
+        {
+            bool isXML = false;
+
+            string ext = fileUrl.Substring(fileUrl.Length - 3);
+
+            if(ext == "xml")
+            {
+                isXML = true;
+            }
+            return isXML;
         }
     }
 }
