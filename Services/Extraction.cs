@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.Xml;
+using System.Xml.Linq;
 
 namespace XMLTAgsExtractor.Services
 {
@@ -16,6 +17,24 @@ namespace XMLTAgsExtractor.Services
                 isXML = true;
             }
             return isXML;
+        }
+        public bool VerifyFileUrl(string fileUrl)
+        {
+            bool isAvailable = false;
+            try
+            {
+                Uri fileUri = new Uri(fileUrl);
+                if (fileUri.Scheme != Uri.UriSchemeHttp || fileUri.Scheme != Uri.UriSchemeHttps)
+                {
+                    if (fileUri.Scheme != "file")
+                    {
+                        return isAvailable;
+                    }
+                }
+                isAvailable = true;
+            }
+            catch (UriFormatException) { }
+            return isAvailable;
         }
 
         public List<string> ExtractTags(string fileUrl)
@@ -38,7 +57,6 @@ namespace XMLTAgsExtractor.Services
             }
             return tagsStartingWithAngleBracket;
         }
-
         public Dictionary<string, object> ExtractTagsandTagContent(string fileUrl)
         {
             XmlDocument xmlDocument = new XmlDocument();
@@ -49,17 +67,19 @@ namespace XMLTAgsExtractor.Services
                 return new Dictionary<string, object>();
             }
             xmlDocument.LoadXml(xmlContent);
-            var rootNode = new Dictionary<string, object>();
-            rootNode[xmlDocument.DocumentElement.Name] = TraverseNode(xmlDocument.DocumentElement);
-            return rootNode;
+
+            var rootNode = TraverseNode(xmlDocument.DocumentElement);
+            return new Dictionary<string, object> { 
+                { xmlDocument.DocumentElement.Name, rootNode} 
+            };
         }
 
-        public byte[] ReadAllBytes(string fileUrl)
+        private byte[] ReadAllBytes(string fileUrl)
         {
             return System.IO.File.ReadAllBytes(fileUrl);
         }
 
-        public void TraverseNode(XmlNode node, List<string> tagsList)
+        private void TraverseNode(XmlNode node, List<string> tagsList)
         {
             if (node.NodeType == XmlNodeType.Element)
             {
@@ -72,61 +92,72 @@ namespace XMLTAgsExtractor.Services
             }
         }
 
-        public Dictionary<string, object> TraverseNode(XmlNode node)
+        
+        private object TraverseNode(XmlNode node)
         {
-            Dictionary<string, object> result = new Dictionary<string, object>();
-
-            if (node.NodeType == XmlNodeType.Element)
+            if (node.HasChildNodes && node.ChildNodes.Count == 1 && node.FirstChild.NodeType == XmlNodeType.Text)
             {
-                List<Dictionary<string, object>> children = new List<Dictionary<string, object>>();
-                Dictionary<string, object> attributes = new Dictionary<string, object>();
-
-                if (node is XmlElement xmlElement && xmlElement.HasAttributes)
-                {
-                    foreach (XmlAttribute attribute in xmlElement.Attributes)
-                    {
-                        attributes[attribute.Name] = attribute.Value;
-                    }
-                }
-
+                return node.InnerText.Trim();
+            }
+            else if (node.HasChildNodes)
+            {
+                Dictionary<string, object> result = new Dictionary<string, object>();
                 foreach (XmlNode childNode in node.ChildNodes)
                 {
                     if (childNode.NodeType == XmlNodeType.Element)
                     {
-                        children.Add(TraverseNode(childNode));
+                        var childResult = TraverseNode(childNode);
+                        if (result.ContainsKey(childNode.Name))
+                        {
+                            var existingValue = result[childNode.Name];
+                            if (existingValue is List<Dictionary<string, object>> existingList)
+                            {
+                                existingList.Add((Dictionary<string, object>)childResult);
+                            }
+                            else
+                            {
+                                result[childNode.Name] = new List<object> { existingValue, childResult };
+
+                            }
+                        }
+                        else
+                        {
+                            result[childNode.Name] = childResult;
+                        }
                     }
                 }
 
-                if (children.Any() || attributes.Any())
+                if (node.Attributes != null && node.Attributes.Count > 0)
                 {
-                    result[node.Name] = children.Any() ? children : attributes;
-                }
-                else
-                {
-                    result[node.Name] = node.InnerText;
-                }
-            }
-
-            return result;
-        }
-
-        public bool VerifyFileUrl(string fileUrl)
-        {
-            bool isAvailable = false;
-            try
-            {
-                Uri fileUri = new Uri(fileUrl);
-                if (fileUri.Scheme != Uri.UriSchemeHttp || fileUri.Scheme != Uri.UriSchemeHttps)
-                {
-                    if (fileUri.Scheme != "file")
+                    Dictionary<string, string> attributes = new Dictionary<string, string>();
+                    foreach (XmlAttribute attribute in node.Attributes)
                     {
-                        return isAvailable;
+                        attributes[attribute.Name] = attribute.Value;
                     }
+
+                    result["@attributes"] = attributes;
                 }
-                isAvailable = true;
+
+                return result;
             }
-            catch (UriFormatException) { }
-            return isAvailable;
+            else if (node.Attributes != null && node.Attributes.Count > 0)
+            {
+                Dictionary<string, object> result = new Dictionary<string, object>();
+                Dictionary<string, string> attributes = new Dictionary<string, string>();
+                foreach (XmlAttribute attribute in node.Attributes)
+                {
+                    attributes[attribute.Name] = attribute.Value;
+                }
+                result["@attributes"] = attributes;
+                return result;
+            }
+            else
+            {
+                return node.InnerText.Trim();
+            }
         }
+
+
+        
     }
 }
