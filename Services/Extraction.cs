@@ -6,15 +6,27 @@ namespace XMLTAgsExtractor.Services
 {
     public class Extraction : IExtraction
     {
+        private readonly ILogger<Extraction> _logger;
+
+        public Extraction(ILogger<Extraction> logger)
+        {
+            _logger = logger;
+        }
         public bool CheckFileExtension(string fileUrl)
         {
             bool isXML = false;
-
-            string ext = fileUrl.Substring(fileUrl.Length - 3);
-
-            if (ext == "xml")
+            try
             {
-                isXML = true;
+                string ext = fileUrl.Substring(fileUrl.Length - 3);
+
+                if (ext == "xml")
+                {
+                    isXML = true;
+                }
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError($" - Exception at CheckFileExtension. Message: {ex.Message}");
             }
             return isXML;
         }
@@ -33,27 +45,38 @@ namespace XMLTAgsExtractor.Services
                 }
                 isAvailable = true;
             }
-            catch (UriFormatException) { }
+            catch (UriFormatException ex) 
+            {
+                _logger.LogError($" - Exception at VerifyFileUrl. Message: {ex.Message}");
+            }
             return isAvailable;
         }
 
         public List<string> ExtractTags(string fileUrl)
         {
-            XmlDocument xmlDocument = new XmlDocument();
-            byte[] xmlBytes = ReadAllBytes(fileUrl);
-            string xmlContent = Encoding.UTF8.GetString(xmlBytes).TrimStart('\uFEFF');
-            if (string.IsNullOrEmpty(xmlContent))
-            {
-                return new List<string>();
-            }
-            xmlDocument.LoadXml(xmlContent);
             List<string> tagsStartingWithAngleBracket = new List<string>();
-            if (xmlDocument.HasChildNodes)
+            try
             {
-                foreach (XmlNode node in xmlDocument.ChildNodes)
+                XmlDocument xmlDocument = new XmlDocument();
+                byte[] xmlBytes = ReadAllBytes(fileUrl);
+                string xmlContent = Encoding.UTF8.GetString(xmlBytes).TrimStart('\uFEFF');
+                if (string.IsNullOrEmpty(xmlContent))
                 {
-                    TraverseNode(node, tagsStartingWithAngleBracket);
+                    return new List<string>();
                 }
+                xmlDocument.LoadXml(xmlContent);
+
+                if (xmlDocument.HasChildNodes)
+                {
+                    foreach (XmlNode node in xmlDocument.ChildNodes)
+                    {
+                        TraverseNode(node, tagsStartingWithAngleBracket);
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError($" - Exception at ExtractTags. Message: {ex.Message}");
             }
             return tagsStartingWithAngleBracket;
         }

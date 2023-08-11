@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Serilog;
 using System.Net;
 using XMLTAgsExtractor.Models;
 using XMLTAgsExtractor.Services;
@@ -20,6 +21,7 @@ namespace XMLTAgsExtractor.Controllers
         [HttpPost]
         public ActionResult<ApiResponse> ExtractTags(ExtractionRequest extractionRequest)
         {
+            
             if (extractionRequest == null || string.IsNullOrEmpty(extractionRequest.FileUrl))
             {
                 _response.StatusCode = HttpStatusCode.BadRequest;
@@ -51,26 +53,26 @@ namespace XMLTAgsExtractor.Controllers
         [HttpPost]
         public ActionResult<ApiResponse> ExtractTagsWithData(ExtractionRequest extractionRequest)
         {
-            bool isAvailable = _extractionService.VerifyFileUrl(extractionRequest.FileUrl);
-            if (!isAvailable)
-            {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.ErrorMessages.Add("File Url is invalid");
-                return _response;
-            }
-            bool isXML = _extractionService.CheckFileExtension(extractionRequest.FileUrl);
-            if (!isXML)
-            {
-                _response.StatusCode = HttpStatusCode.BadRequest;
-                _response.ErrorMessages.Add("File extension must be .xml");
-                return _response;
-            }
+                bool isAvailable = _extractionService.VerifyFileUrl(extractionRequest.FileUrl);
+                if (!isAvailable)
+                {
+                    _response.StatusCode = HttpStatusCode.NotFound;
+                    _response.ErrorMessages.Add("File Url is invalid");
+                    return _response;
+                }
+                bool isXML = _extractionService.CheckFileExtension(extractionRequest.FileUrl);
+                if (!isXML)
+                {
+                    _response.StatusCode = HttpStatusCode.BadRequest;
+                    _response.ErrorMessages.Add("File extension must be .xml");
+                    return _response;
+                }
 
-            Dictionary<string, object> extractedData = _extractionService.ExtractTagsandTagContent(extractionRequest.FileUrl);
-            _response.IsSuccess = true;
-            _response.StatusCode = HttpStatusCode.OK;
-            _response.Result = extractedData;
-            return _response;
+                Dictionary<string, object> extractedData = _extractionService.ExtractTagsandTagContent(extractionRequest.FileUrl);
+                _response.IsSuccess = true;
+                _response.StatusCode = HttpStatusCode.OK;
+                _response.Result = extractedData;
+                return _response;
         }   
 
 
